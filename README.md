@@ -25,3 +25,20 @@ Mautic requiere MySQL/MariaDB. Supabase PostgreSQL no es sustituto directo de su
 - Dos borradores HTML para bienvenida y seguimiento; guia comercial sin precios inventados.
 
 La interfaz es Mautic; el producto y remitente se presentan como Hefesto Marketing. No se ha aplicado un tema visual completo ni se modifico el nucleo. Formularios/campañas/segmentos se configuran en Mautic; las guias no son registros ya creados en una instancia.
+
+## Despliegue en Coolify (MVP Hefesto)
+
+Pasos detallados y validacion en `docs/COOLIFY.md`. Resumen:
+
+- Recurso Docker Compose, build pack Docker Compose, dominio HTTPS al servicio `proxy`.
+- Variables obligatorias: `MARKETING_HOST`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `TRUSTED_PROXIES`, `MAIL_FROM`. `MAILER_DSN` queda en `null://null` mientras no hay SMTP configurado.
+- El compose no fuerza `name:` raiz, ni en redes ni en volumenes: Coolify asigna los suyos propios. No los declares fijos en el YAML.
+- `web`, `cron` y `worker` se construyen cada uno con `build: .` para que Coolify genere su propia imagen etiquetada; no se comparte una imagen `pull_policy: never` entre servicios.
+- `TRUSTED_PROXIES` debe contener la IP/CIDR real del `proxy` interno (y de Traefik de Coolify si la cadena de proxies se procesa completa). Evitar `0.0.0.0/0`; un proxy de Internet es un riesgo de suplantacion.
+- Verificacion local del contrato:
+
+  ```sh
+  bash scripts/coolify-check.sh
+  ```
+
+  Falla con `servicio: motivo` si el compose rompe el contrato Coolify.
