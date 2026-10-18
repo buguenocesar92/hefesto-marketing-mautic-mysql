@@ -66,26 +66,43 @@ rm -f "${docker_err}"
 
 errors=0
 
-# --- Contrato 2a: 'name:' fijo a nivel de proyecto ------------------------
-project_name="$(printf '%s' "${render_json}" | jq -r '.name // empty')"
-if [[ -n "${project_name}" ]]; then
-    echo "compose: project 'name' fijo '${project_name}' (Coolify asigna el suyo)" >&2
-    errors=$((errors + 1))
-fi
-
-# --- Contrato 2b/2c: redes y volumenes sin 'name:' fijo -------------------
-fixed_net_names="$(printf '%s' "${render_json}" \
-    | jq -r '.networks // {} | to_entries[] | select(.value.name != null) | "\(.key)=\(.value.name)"')"
-if [[ -n "${fixed_net_names}" ]]; then
-    echo "compose: redes con 'name:' fijo -> ${fixed_net_names}" >&2
-    errors=$((errors + 1))
-fi
-
-fixed_vol_names="$(printf '%s' "${render_json}" \
-    | jq -r '.volumes // {} | to_entries[] | select(.value.name != null) | "\(.key)=\(.value.name)"')"
-if [[ -n "${fixed_vol_names}" ]]; then
-    echo "compose: volumenes con 'name:' fijo -> ${fixed_vol_names}" >&2
-    errors=$((errors + 1))
+# --- Contrato 2: 'name:' fijo en el YAML fuente ---------------------------
+# Compose auto-rellena project/network/volume names al renderizar aunque el
+# fuente no los declare (usa el directorio como prefijo), asi que el chequeo
+# debe mirar el YAML fuente, no el JSON renderizado.
+name_violations="$(python3 - "${compose_file}" <<'PY'
+import sys, yaml
+src = sys.argv[1]
+try:
+    doc = yaml.safe_load(open(src))
+except Exception as exc:
+    print(f"compose: YAML invalido -> {exc}")
+    sys.exit(0)
+if not isinstance(doc, dict):
+    sys.exit(0)
+out = []
+root_name = doc.get("name")
+if isinstance(root_name, str) and root_name.strip():
+    out.append(f"compose: project 'name' fijo '{root_name}' (Coolify asigna el suyo)")
+for key, val in (doc.get("networks") or {}).items():
+    if isinstance(val, dict):
+        n = val.get("name")
+        if isinstance(n, str) and n.strip():
+            out.append(f"compose: red '{key}' con 'name:' fijo '{n}'")
+for key, val in (doc.get("volumes") or {}).items():
+    if isinstance(val, dict):
+        n = val.get("name")
+        if isinstance(n, str) and n.strip():
+            out.append(f"compose: volumen '{key}' con 'name:' fijo '{n}'")
+for line in out:
+    print(line)
+PY
+)"
+if [[ -n "${name_violations}" ]]; then
+    echo "${name_violations}" >&2
+    while IFS= read -r line; do
+        errors=$((errors + 1))
+    done <<< "${name_violations}"
 fi
 
 # --- Contrato 1: servicios sin profiles ----------------------------------
