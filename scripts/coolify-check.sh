@@ -143,11 +143,27 @@ while IFS= read -r svc; do
         fi
     done
 
-    sec="$(printf '%s' "${body}" | jq -r '.security_opt // [] | join(",")')"
-    if [[ ",${sec}," == *",unconfined,"* ]]; then
+    sec="$(printf '%s' "${body}" \
+        | jq -r '[.security_opt // [] | .[] | select(test("unconfined"))] | length')"
+    if [[ "${sec}" != "0" ]]; then
         echo "${name}: security_opt unconfined no permitido" >&2
         errors=$((errors + 1))
     fi
+
+    while IFS= read -r src; do
+        [[ -z "${src}" ]] && continue
+        if [[ "${src}" == *docker.sock* ]]; then
+            echo "${name}: monta docker.sock ('${src}')" >&2
+            errors=$((errors + 1))
+        elif [[ "${src}" == /* && "${src}" != "${repo_root}/"* ]]; then
+            echo "${name}: bind fuera del repo '${src}'" >&2
+            errors=$((errors + 1))
+        fi
+    done < <(printf '%s' "${body}" \
+        | jq -r --arg root "${repo_root}/" \
+            '(.volumes // [])
+            | map(select(.type=="bind") | .source)
+            | .[]?')
 
     # --- Contrato 3: imagen sin build con pull_policy: never --------------
     image="$(printf '%s' "${body}" | jq -r '.image // empty')"
