@@ -31,9 +31,9 @@ La interfaz es Mautic; el producto y remitente se presentan como Hefesto Marketi
 Pasos detallados y validacion en `docs/COOLIFY.md`. Resumen:
 
 - Recurso Docker Compose, build pack Docker Compose, dominio HTTPS al servicio `proxy`.
-- Variables obligatorias: `MARKETING_HOST`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `TRUSTED_PROXIES`, `MAIL_FROM`. `MAILER_DSN` queda en `null://null` mientras no hay SMTP configurado.
+- Variables obligatorias: `MARKETING_HOST`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, `TRUSTED_PROXIES`, `MAIL_FROM`. `MAILER_DSN` queda en `null://null` mientras no hay SMTP configurado. `MARKETING_HOST` solo dominio, sin `https://`; `ADMIN_PASSWORD` de al menos 32 caracteres.
 - El compose no fuerza `name:` raiz, ni en redes ni en volumenes: Coolify asigna los suyos propios. No los declares fijos en el YAML.
-- `web`, `cron` y `worker` se construyen cada uno con `build: .` para que Coolify genere su propia imagen etiquetada; no se comparte una imagen `pull_policy: never` entre servicios.
+- `web`, `cron` y `worker` declaran `build: .` y la misma etiqueta `hefesto-marketing-mautic:7.2.1`, asi Coolify construye la imagen sin depender de `pull_policy: never`.
 - `TRUSTED_PROXIES` debe contener la IP/CIDR real del `proxy` interno (y de Traefik de Coolify si la cadena de proxies se procesa completa). Evitar `0.0.0.0/0`; un proxy de Internet es un riesgo de suplantacion.
 - Verificacion local del contrato:
 
